@@ -2,7 +2,7 @@
 //  1. every problem generator yields valid answers (300 runs per lesson)
 //  2. every lesson and boss round of every grade can be finished by answering correctly
 //  3. wrong answers show a hint, then the solution
-//  4. the 셈이 Q&A panel answers in offline mode
+//  4. the 셈이 Q&A panel answers in offline mode; every worksheet matches its answer sheet
 //  5. no horizontal overflow at phone width, no console errors
 // Exit code is non-zero on any failure.
 const http = require('http');
@@ -97,8 +97,22 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   check(/분모/.test(reply), 'Q&A panel answers offline');
   await page.click('#askClose');
 
+  // 4b. worksheets: problem sheet and answer sheet match for the same set number
+  const sheetIds = await page.evaluate(() => LESSONS.map(l => l.id).concat(Object.keys(R)));
+  const sheetBad = [];
+  for (const id of sheetIds) {
+    await page.evaluate(h => { location.hash = h; }, `ws-${id}-31337`);
+    await page.waitForSelector('.sheet');
+    const ws = await page.$$eval('.sq .sq-b', els => els.map(e => e.innerHTML.split('<div class="sq-a">')[0]));
+    await page.evaluate(h => { location.hash = h; }, `ans-${id}-31337`);
+    await page.waitForSelector('.sheet-list.keys');
+    const an = await page.$$eval('.sq .sq-b', els => els.map(e => e.innerHTML.split('<div class="ans-line">')[0]));
+    if (ws.length < 9 || ws.length !== an.length || ws.some((x, i) => x !== an[i])) sheetBad.push(id);
+  }
+  check(sheetBad.length === 0, `worksheets match their answer sheets (${sheetIds.length} sheets)${sheetBad.length ? ': ' + sheetBad.join(', ') : ''}`);
+
   // 5. layout
-  for (const id of ['home', 'g1', 'g6', 'hill-3', 'port-1', 'jungle-2', 'canyon-3', 'observ-3', 'mul-3', 'frac-2']) {
+  for (const id of ['home', 'g1', 'g6', 'ws-light-5', 'ans-port-7', 'hill-3', 'port-1', 'jungle-2', 'canyon-3', 'observ-3', 'mul-3', 'frac-2']) {
     await page.evaluate(h => { location.hash = h; }, id);
     await page.waitForTimeout(150);
     const ov = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);

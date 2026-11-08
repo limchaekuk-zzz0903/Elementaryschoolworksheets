@@ -323,6 +323,55 @@ button.grp{cursor:pointer}
 .circ .c{fill:var(--narr);stroke:var(--line);stroke-width:3}
 .circ line{stroke:var(--castle);stroke-width:3}
 .circ text{fill:var(--ink);font-family:var(--f-display);font-size:14px;text-anchor:middle}
+/* worksheets */
+.sheet-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.sheet-tools .row{gap:8px}
+.seg-tabs{display:inline-flex;border:3px solid var(--line);border-radius:12px;overflow:hidden}
+.seg-tabs a{font-family:var(--f-display);padding:.45em 1em;text-decoration:none;color:var(--ink);background:var(--panel)}
+.seg-tabs a.on{background:var(--sun);color:var(--onsun)}
+.sheet{background:var(--panel);border:3px solid var(--line);border-radius:6px;padding:24px;display:flex;flex-direction:column;gap:16px;color:var(--ink)}
+.sheet-h{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:flex-end;border-bottom:3px solid var(--line);padding-bottom:12px}
+.sheet-h h1{font-size:1.6rem}
+.sheet-h .lbl{font-family:var(--f-display);color:var(--ink2)}
+.sheet-meta{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--f-display)}
+.sheet-meta span{display:inline-flex;gap:6px;align-items:flex-end}
+.sheet-meta i{display:inline-block;width:5.5em;border-bottom:2px solid var(--line);height:1.2em}
+.sheet-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.sheet-list.keys{grid-template-columns:repeat(2,minmax(0,1fr))}
+.sq{display:flex;gap:10px;border:2px solid var(--paper2);border-radius:10px;padding:12px;min-width:0;break-inside:avoid;page-break-inside:avoid}
+.sq-n{font-family:var(--f-display);font-size:1.15rem;min-width:1.8em;height:1.8em;border-radius:50%;background:var(--paper2);display:flex;align-items:center;justify-content:center;flex:none}
+.sq-b{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1;font-size:1rem}
+.sq-b .big{font-family:var(--f-display);font-size:1.35rem}
+.sq-b .viz{justify-content:flex-start}
+.sq-b svg{max-width:100%;height:auto}
+.sq-b .qwho{font-size:1.05rem}
+.sq-b .qwho .ch{width:40px;height:40px}
+.sq-b .vm{font-size:1.5rem;margin:0}
+.sq-opts{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--f-display)}
+.sq-opts li{display:flex;align-items:center;gap:4px}
+.sq-opts li b{font-weight:400;color:var(--ink2)}
+.sq-a{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end;font-family:var(--f-display);margin-top:auto}
+.box{display:inline-block;width:3.6em;height:1.9em;border:2px solid var(--line);border-radius:6px;vertical-align:middle}
+.box.sm{width:2.2em}
+.fbox{display:inline-flex;flex-direction:column;align-items:center;gap:3px;vertical-align:middle}
+.fbox hr{width:100%;border:0;border-top:2px solid var(--line);margin:0}
+.ans-line{border-top:2px dashed var(--paper2);padding-top:8px;display:flex;flex-direction:column;gap:4px}
+.ans-line b{font-family:var(--f-display);font-weight:400;color:var(--castle)}
+.sheet-foot{display:flex;justify-content:space-between;gap:10px;font-family:var(--f-display);color:var(--ink2);font-size:.9rem;border-top:2px solid var(--paper2);padding-top:10px}
+.print-note{font-size:.92rem;color:var(--ink2)}
+.stop.sheetlink{background:var(--paper2)}
+@media (max-width:640px){.sheet{padding:14px}.sheet-list{grid-template-columns:minmax(0,1fr)}}
+@page{size:A4;margin:12mm}
+@media print{
+  :root,:root[data-theme="dark"]{--paper:#fff!important;--paper2:#ECEEF5!important;--panel:#fff!important;--ink:#111!important;--ink2:#444!important;--line:#111!important;--shadow:#111!important;--bubble:#fff!important;--slice:#fff!important;--narr:#FFF4C2!important;--trickbg:#F3EEFF!important;color-scheme:light}
+  body{background:#fff!important;font-size:12pt}
+  body::before,.top,.ask-fab,.ask,.no-print,.crumb,.burst{display:none!important}
+  .wrap{padding:0!important;max-width:none;gap:0}
+  .sheet{border:0;padding:0;box-shadow:none}
+  .sheet-list{gap:10px}
+  .sq{border-color:#ccc}
+  .pn{animation:none}
+}
 /* ask 셈이 */
 .askq{font-family:var(--f-display);font-size:.95rem;border:2.5px solid var(--line);background:var(--robot);color:var(--onsun);border-radius:999px;padding:4px 12px 4px 6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
 .askq svg{width:26px;height:26px}
@@ -1540,7 +1589,7 @@ function nextTarget(g){
 function regionCard(k,idx){
   const r=R[k];
   const stops=lessonsOf(k).map((l,i)=>`<a class="stop" href="#${l.id}"><span class="no">${i+1}화${l.preview?' · 4학년 미리보기':''}</span><span class="tt">${l.t}</span><span class="ss" aria-label="별 ${P.stars[l.id]||0}개">${[1,2,3].map(n=>STAR((P.stars[l.id]||0)>=n)).join('')}</span></a>`).join('');
-  return `${idx?'<div class="path-dash" aria-hidden="true"></div>':''}<article class="rg" style="--rc:${r.color}"><div class="rg-h"><div><span class="tag ${r.tag==='처음 배우기'?'new':''}">${r.tag?`${r.sem} · ${r.tag}`:r.sem}</span><h3>${r.name}</h3><p>${r.desc}</p></div><span class="crys" title="${r.crystal}">${CRYSTAL('var(--sun)',!!P.crystals[k])}</span></div><div class="stops">${stops}<a class="stop boss" href="#${k}-boss"><span class="no">대장 문제</span><span class="tt">${P.crystals[k]?r.crystal+' 획득!':'뚱땅이의 도전장'}</span><span class="ss">${CRYSTAL(r.color,!!P.crystals[k]).replace('<svg','<svg style="width:18px;height:22px"')}</span></a></div></article>`;
+  return `${idx?'<div class="path-dash" aria-hidden="true"></div>':''}<article class="rg" style="--rc:${r.color}"><div class="rg-h"><div><span class="tag ${r.tag==='처음 배우기'?'new':''}">${r.tag?`${r.sem} · ${r.tag}`:r.sem}</span><h3>${r.name}</h3><p>${r.desc}</p></div><span class="crys" title="${r.crystal}">${CRYSTAL('var(--sun)',!!P.crystals[k])}</span></div><div class="stops">${stops}<a class="stop boss" href="#${k}-boss"><span class="no">대장 문제</span><span class="tt">${P.crystals[k]?r.crystal+' 획득!':'뚱땅이의 도전장'}</span><span class="ss">${CRYSTAL(r.color,!!P.crystals[k]).replace('<svg','<svg style="width:18px;height:22px"')}</span></a><a class="stop sheetlink" href="#ws-${k}-${newSeed()}"><span class="no">출력용</span><span class="tt">단원 문제지 · 정답과 풀이</span><span class="no">인쇄해서 종이로 풀기</span></a></div></article>`;
 }
 function gradeCard(G){
   const ls=lessonsOfGrade(G.g),ks=regionsOf(G.g),st=gradeStars(G.g),max=ls.length*3,cr=ks.filter(k=>P.crystals[k]).length;
@@ -1614,6 +1663,7 @@ function renderLesson(L){
   <section><h2 class="sec">만화로 보기</h2>${comicHtml(L.comic)}</section>
   <section><h2 class="sec">직접 해 보기</h2><p class="intro">${W.intro}</p><div class="widget" id="w"></div></section>
   <section><h2 class="sec">도전 문제</h2><p class="intro">5문제예요. 틀리면 셈이가 힌트를 줘요. 첫 번째에 맞힐수록 별이 많아져요.</p><div id="quiz"></div></section>
+  <section><h2 class="sec">종이로 풀기</h2><p class="intro">이 화의 문제 10개로 문제지를 만들어요. 정답과 풀이는 따로 볼 수 있어요.</p><div class="row"><a class="btn ghost" href="#ws-${L.id}-${newSeed()}">문제지 만들기</a><a class="btn ghost" href="#ws-${L.r}-${newSeed()}">${r.name} 단원 문제지</a></div></section>
   <nav class="lnav">${i>0?`<a class="btn ghost" href="#${ls[i-1].id}">이전 화</a>`:`<a class="btn ghost" href="#g${g}">${g}학년 지도</a>`}${navNext(L)}</nav>`;
   mountWidget($('#w'),W);
   const q=$('#quiz');
@@ -1637,6 +1687,55 @@ function renderBoss(k){
     });};
   start();
 }
+/* ---------- 문제지·풀이지 (printable worksheets) ---------- */
+// A worksheet is generated from a set number (seed), so the problem sheet and the answer sheet always match.
+const CAN_PRINT=!window.claude;
+function seeded(seed,fn){
+  const orig=Math.random;let a=(seed>>>0)||1;
+  Math.random=()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};
+  try{return fn();}finally{Math.random=orig;}
+}
+function sheetSource(id){
+  const L=LESSONS.find(l=>l.id===id);
+  if(L){const r=R[L.r];return {kind:'lesson',title:`${lessonsOf(L.r).indexOf(L)+1}화. ${L.t}`,sub:`Lv.${r.g} · ${r.g}학년 · ${r.name}`,g:r.g,color:r.color,back:`#${L.id}`,make:()=>[...L.quiz(),...L.quiz()]};}
+  if(R[id]){const r=R[id],ls=lessonsOf(id),per=ls.length>3?2:4;return {kind:'unit',title:`${r.name} 단원 문제지`,sub:`Lv.${r.g} · ${r.g}학년 · ${r.sem} · ${ls.length}화 전체`,g:r.g,color:r.color,back:`#g${r.g}`,make:()=>ls.flatMap(l=>shuffle(l.quiz()).slice(0,per))};}
+  return null;
+}
+const CIRC=['①','②','③','④','⑤'];
+function blankFor(p){
+  const box=(c='')=>`<span class="box ${c}"></span>`,fb=()=>`<span class="fbox">${box('sm')}<hr>${box('sm')}</span>`;
+  switch(p.type){
+    case 'choice':return '답: ( &nbsp; &nbsp; )';
+    case 'frac':return `답: ${fb()}`;
+    case 'mixed':return `답: ${box('sm')}${fb()}`;
+    case 'qr':return `몫 ${box('sm')} 나머지 ${box('sm')}`;
+    case 'multi':return p.labels.map(l=>`${box('sm')} ${l}`).join(' ');
+    default:return `답: ${box()}`;
+  }
+}
+function sheetQ(p){
+  const opts=p.type==='choice'?`<ol class="sq-opts">${p.opts.map((o,i)=>`<li><b>${CIRC[i]}</b>${o}</li>`).join('')}</ol>`:'';
+  return `${p.q}${opts}`;
+}
+function renderSheet(mode,id,seed){
+  const src=sheetSource(id);if(!src){renderHome();return;}
+  const probs=seeded(seed,src.make),ans=mode==='ans';
+  const other=`#${ans?'ws':'ans'}-${id}-${seed}`;
+  app.innerHTML=`<nav class="crumb no-print"><a href="#home">모험 지도</a><span>›</span><a href="#g${src.g}">${src.g}학년</a><span>›</span><span>${src.title}</span></nav>
+  <div class="sheet-tools no-print"><div class="seg-tabs" role="tablist"><a href="#ws-${id}-${seed}" class="${ans?'':'on'}" aria-selected="${!ans}">문제지</a><a href="#ans-${id}-${seed}" class="${ans?'on':''}" aria-selected="${ans}">정답과 풀이</a></div>
+  <div class="row"><a class="btn ghost" href="#${mode}-${id}-${newSeed()}">다른 문제로</a>${CAN_PRINT?'<button type="button" class="btn" id="printBtn">인쇄하기</button>':''}<a class="btn ghost" href="${src.back}">돌아가기</a></div></div>
+  ${CAN_PRINT?'':`<p class="print-note no-print">이 화면에서는 인쇄 기능을 쓸 수 없어요. 배포된 학습 페이지나 오늘우리집 앱의 학습 페이지에서 열면 인쇄할 수 있어요. 세트 번호 ${seed}를 기억하면 같은 문제가 나와요.</p>`}
+  <article class="sheet" style="--rc:${src.color}">
+    <header class="sheet-h"><div><span class="lbl">${src.sub}</span><h1>${src.title.replace(' 단원 문제지','')} ${ans?'정답과 풀이':src.kind==='unit'?'단원 문제지':'문제지'}</h1></div>
+    ${ans?`<div class="sheet-meta"><span>문제 ${probs.length}개</span><span>세트 ${seed}</span></div>`:`<div class="sheet-meta"><span>이름 <i></i></span><span>날짜 <i></i></span><span>점수 <i style="width:3em"></i>/ ${probs.length}</span></div>`}</header>
+    <ol class="sheet-list ${ans?'keys':''}">${probs.map((p,i)=>`<li class="sq"><span class="sq-n">${i+1}</span><div class="sq-b">${sheetQ(p)}${ans?`<div class="ans-line"><span><b>정답</b> ${p.type==='choice'?`${CIRC[p.a]} `:''}${p.show}</span><span><b>풀이</b> ${p.ex}</span></div>`:`<div class="sq-a">${blankFor(p)}</div>`}</div></li>`).join('')}</ol>
+    <footer class="sheet-foot"><span>숫자섬 수학 탐험대</span><span>세트 ${seed}${ans?'':' · 정답은 같은 세트 번호의 풀이지에서 확인'}</span></footer>
+  </article>
+  <nav class="lnav no-print"><a class="btn ghost" href="${src.back}">돌아가기</a><a class="btn" href="${other}">${ans?'문제지 보기':'정답과 풀이 보기'}</a></nav>`;
+  const pb=$('#printBtn');if(pb)pb.addEventListener('click',()=>{try{window.print();}catch(e){}});
+}
+const newSeed=()=>1000+Math.floor(Math.random()*9000);
+
 /* ---------- 셈이에게 물어보기 (Q&A) ---------- */
 // AI mode uses the viewer's Claude via the artifact `sample` capability; otherwise a built-in offline helper answers.
 let CUR={place:'모험 지도',grade:0,lesson:null,p:null,idx:0,total:0,tries:0,locked:false};
@@ -1774,6 +1873,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ASK.open)closeAsk()
 
 function route(){
   const h=decodeURIComponent(location.hash.slice(1))||'home';
+  const sm=/^(ws|ans)-(.+)-(\d{1,9})$/.exec(h);
+  if(sm&&sheetSource(sm[2])){const src=sheetSource(sm[2]);CUR={place:`${src.title} ${sm[1]==='ws'?'문제지':'풀이지'}`,grade:src.g,lesson:null,p:null,idx:0,total:0,tries:0,locked:false};renderSheet(sm[1],sm[2],+sm[3]);updateHeader();refreshAsk();window.scrollTo(0,0);return;}
   const L=LESSONS.find(l=>l.id===h);
   const boss=h.endsWith('-boss')&&R[h.slice(0,-5)]?h.slice(0,-5):null;
   const gm=/^g([1-6])$/.exec(h),gr=L?R[L.r].g:boss?R[boss].g:gm?+gm[1]:(P.grade||0);
