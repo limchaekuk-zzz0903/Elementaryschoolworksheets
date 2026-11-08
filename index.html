@@ -265,12 +265,48 @@ button.grp{cursor:pointer}
 .burst{position:fixed;pointer-events:none;z-index:50}
 .burst i{position:absolute;width:16px;height:16px;background:var(--sun);clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);animation:fly .8s ease-out forwards}
 @keyframes fly{to{transform:translate(var(--x),var(--y)) rotate(200deg);opacity:0}}
+/* ask 셈이 */
+.askq{font-family:var(--f-display);font-size:.95rem;border:2.5px solid var(--line);background:var(--robot);color:var(--onsun);border-radius:999px;padding:4px 12px 4px 6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.askq svg{width:26px;height:26px}
+.ask-fab{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;display:flex;align-items:center;gap:6px;font-family:var(--f-display);font-size:1.05rem;border:3px solid var(--line);background:var(--robot);color:var(--onsun);border-radius:999px;padding:6px 16px 6px 6px;box-shadow:3px 3px 0 var(--shadow);cursor:pointer}
+.ask-fab svg{width:40px;height:40px}
+.ask{position:fixed;z-index:45;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(400px,calc(100vw - 32px));height:min(620px,calc(100vh - 110px));display:flex;flex-direction:column;background:var(--panel);border:3px solid var(--line);border-radius:14px;box-shadow:6px 6px 0 var(--shadow);overflow:hidden}
+.ask[hidden]{display:none!important}
+.ask-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px 8px 8px;background:var(--bar);color:var(--barfg)}
+.ask-id{display:flex;align-items:center;gap:8px}
+.ask-id svg{width:42px;height:42px}
+.ask-id b{font-family:var(--f-display);font-weight:400;font-size:1.1rem;display:block;line-height:1.2}
+.ask-mode{font-size:.8rem;opacity:.85}
+.ask-x{width:38px;height:38px;border-radius:50%;border:2px solid var(--barfg);background:transparent;color:var(--barfg);font-size:1.4rem;line-height:1;cursor:pointer}
+.ask-ctx{font-family:var(--f-display);font-size:.88rem;color:var(--ink2);background:var(--paper2);padding:6px 12px}
+.ask-log{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.msg{display:flex;gap:6px;align-items:flex-end}
+.msg svg{width:34px;height:34px;flex:none}
+.msg.kid{justify-content:flex-end}
+.mb{max-width:84%;white-space:pre-wrap;overflow-wrap:anywhere;border-radius:14px;padding:8px 12px;line-height:1.55;font-size:1rem}
+.msg.semi .mb{background:var(--bubble);border:2px solid var(--line);border-bottom-left-radius:4px}
+.msg.kid .mb{background:var(--sun);color:var(--onsun);border:2px solid var(--line);border-bottom-right-radius:4px}
+.mb.wait{color:var(--ink2);font-style:italic}
+.ask-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 8px}
+.ask-chips button{font-family:var(--f-display);font-size:.9rem;border:2px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:3px 10px;cursor:pointer}
+.ask-f{display:flex;gap:6px;padding:8px 10px 10px;border-top:2px solid var(--paper2)}
+.ask-f input{flex:1;min-width:0;font:inherit;font-size:1rem;border:2.5px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--paper);color:var(--ink)}
+.ask-f .btn{padding:.45em .8em;font-size:1rem}
+@media (max-width:520px){.ask{left:0;right:0;bottom:0;width:auto;height:min(78vh,calc(100vh - 60px));border-radius:16px 16px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}.ask-fab span{display:none}.ask-fab{padding:6px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head><!--SA-->
 <body><!--SA-->
 <header class="top"><div class="top-in" id="topbar"></div></header>
 <main class="wrap" id="app"></main>
+<button class="ask-fab" id="askFab" type="button" aria-controls="askPanel" aria-expanded="false"><span class="ask-face"></span><span>셈이에게 질문</span></button>
+<aside class="ask" id="askPanel" hidden aria-label="셈이에게 질문하기">
+  <div class="ask-h"><div class="ask-id"><span class="ask-face"></span><div><b>셈이에게 물어보기</b><span class="ask-mode" id="askMode">기본 도움말</span></div></div><button class="ask-x" id="askClose" type="button" aria-label="닫기">×</button></div>
+  <div class="ask-ctx" id="askCtx"></div>
+  <div class="ask-log" id="askLog" aria-live="polite"></div>
+  <div class="ask-chips" id="askChips"></div>
+  <form class="ask-f" id="askForm" autocomplete="off"><label for="askIn" hidden>질문</label><input id="askIn" placeholder="궁금한 걸 써 봐" maxlength="200"><button class="btn" type="submit" id="askGo">보내기</button><button class="btn ghost" type="button" id="askStop" hidden>멈추기</button></form>
+</aside>
 <script>
 'use strict';
 /* ---------- helpers ---------- */
@@ -322,13 +358,15 @@ function pie(d,on,o={}){
   else{let acc=0;for(let i=0;i<d;i++){const w=o.angles?o.angles[i]:1,a0=acc/tot*2*Math.PI-Math.PI/2;acc+=w;const a1=acc/tot*2*Math.PI-Math.PI/2;
     const x0=(c+r*Math.cos(a0)).toFixed(2),y0=(c+r*Math.sin(a0)).toFixed(2),x1=(c+r*Math.cos(a1)).toFixed(2),y1=(c+r*Math.sin(a1)).toFixed(2);
     p+=`<path ${act} data-i="${i}" class="sl ${cls(i)}" d="M${c} ${c} L${x0} ${y0} A${r} ${r} 0 ${(a1-a0)>Math.PI?1:0} 1 ${x1} ${y1}Z"/>`;}}
-  return `<svg class="pie${o.click?' tap':''}" viewBox="0 0 ${s} ${s}" width="${s}" height="${s}" role="img" aria-label="${o.label||'피자 그림'}">${p}</svg>`;
+  const cnt=Array.isArray(on)?on.filter(x=>x==='on'||x==='on2').length:on;
+  const lab=o.label||(o.angles?`크기가 서로 다른 ${d}조각으로 자른 원`:`똑같이 ${d}조각으로 나눈 원, ${cnt}조각 색칠`);
+  return `<svg class="pie${o.click?' tap':''}" viewBox="0 0 ${s} ${s}" width="${s}" height="${s}" role="img" aria-label="${lab}">${p}</svg>`;
 }
 function bar(d,on,o={}){
   const W=o.w||240,h=o.h||40,ws=o.widths||Array(d).fill(1),tot=ws.reduce((a,b)=>a+b,0);
   let x=3,p='';
   ws.forEach((w,i)=>{const ww=(W-6)*w/tot;p+=`<rect class="sl ${i<on?'on':''}" x="${x.toFixed(2)}" y="3" width="${ww.toFixed(2)}" height="${h-6}"/>`;x+=ww;});
-  return `<svg class="pie" viewBox="0 0 ${W} ${h}" width="${W}" height="${h}" role="img" aria-label="막대 그림">${p}</svg>`;
+  return `<svg class="pie" viewBox="0 0 ${W} ${h}" width="${W}" height="${h}" role="img" aria-label="${o.widths?`크기가 서로 다른 ${d}칸 막대`:`똑같이 ${d}칸으로 나눈 막대, ${on}칸 색칠`}">${p}</svg>`;
 }
 const pies=(n,d,size=96)=>{let h='',k=Math.max(1,Math.ceil(n/d));for(let i=0;i<k;i++)h+=pie(d,Math.min(d,n-i*d),{size});return `<div class="viz">${h}</div>`;};
 function apples(c,r){
@@ -339,7 +377,7 @@ function apples(c,r){
 const GEM='<svg class="gem" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.5 L18.5 8 L10 18.5 L1.5 8Z"/></svg>';
 const gemsHtml=n=>`<div class="gems" role="img" aria-label="보석 ${n}개">${GEM.repeat(n)}</div>`;
 function candies(t,g,sel=[],tap=false){
-  const s=t/g;let h='<div class="candies">';
+  const s=t/g;let h=`<div class="candies" role="group" aria-label="사탕 ${t}개${g>1?`, ${s}개씩 ${g}묶음${sel.length?`, 색칠한 묶음 ${sel.length}개`:''}`:''}">`;
   for(let i=0;i<g;i++){const tag=tap?'button':'div';h+=`<${tag} ${tap?`type="button" data-act="grp" data-i="${i}" aria-pressed="${sel.includes(i)}" aria-label="${i+1}번째 묶음"`:''} class="grp ${sel.includes(i)?'sel':''}">${'<i class="cdy"></i>'.repeat(s)}</${tag}>`;}
   return h+'</div>';
 }
@@ -699,11 +737,13 @@ function burst(anchor){
 function runQuiz(root,problems,onDone){
   const st={i:0,tries:0,first:0,solved:0,locked:false};
   const draw=()=>{
-    if(st.i>=problems.length){onDone(st,problems.length);return;}
+    if(st.i>=problems.length){CUR.p=null;refreshAsk();onDone(st,problems.length);return;}
     const p=problems[st.i];
-    root.innerHTML=`<div class="qcard" id="qcard"><div class="qtop"><span>문제 ${st.i+1} / ${problems.length}</span><span class="pips">${problems.map((_,j)=>`<i class="${j<st.i?'done':j===st.i?'now':''}"></i>`).join('')}</span></div><div class="qtext">${p.q}</div><form class="qans" id="qform" autocomplete="off">${ansHtml(p)}</form><div class="fb" id="fb" aria-live="polite"></div><div class="row" id="qnext"></div></div>`;
+    Object.assign(CUR,{p,idx:st.i+1,total:problems.length,tries:0,locked:false});refreshAsk();
+    root.innerHTML=`<div class="qcard" id="qcard"><div class="qtop"><span>문제 ${st.i+1} / ${problems.length}</span><button type="button" class="askq" data-ask>${face('semi','happy')}셈이에게 물어보기</button><span class="pips">${problems.map((_,j)=>`<i class="${j<st.i?'done':j===st.i?'now':''}"></i>`).join('')}</span></div><div class="qtext">${p.q}</div><form class="qans" id="qform" autocomplete="off">${ansHtml(p)}</form><div class="fb" id="fb" aria-live="polite"></div><div class="row" id="qnext"></div></div>`;
     $('#qform',root).addEventListener('submit',e=>{e.preventDefault();submit();});
     root.querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>submit(+b.dataset.i,b)));
+    $('[data-ask]',root).addEventListener('click',()=>openAsk());
   };
   function submit(choice,btn){
     if(st.locked)return;
@@ -716,13 +756,14 @@ function runQuiz(root,problems,onDone){
       if(btn)btn.classList.add('right');
       fb.className='fb ok';fb.innerHTML=`<b>${pick(PRAISE)}</b>${p.ex}`;burst(fb);finish();
     }else{
-      st.tries++;
+      st.tries++;CUR.tries=st.tries;
       if(btn){btn.classList.add('wrong');btn.disabled=true;}
       if(st.tries===1){fb.className='fb hint';fb.innerHTML=`<b>앗, 다시 생각해 볼까?</b>셈이의 힌트: ${p.hint}`;}
       else{st.locked=true;fb.className='fb bad';fb.innerHTML=`<b>정답은 ${p.show}</b>${p.ex}`;if(p.type==='choice')root.querySelectorAll('.opt')[p.a].classList.add('right');finish();}
     }
   }
   function finish(){
+    CUR.tries=st.tries;CUR.locked=true;refreshAsk();
     root.querySelectorAll('#qform input, #qform button').forEach(x=>x.disabled=true);
     const b=document.createElement('button');b.type='button';b.className='btn';
     b.textContent=st.i===problems.length-1?'결과 보기':'다음 문제';
@@ -762,7 +803,9 @@ function parentsHtml(){
   <li><b>분수는 처음부터</b>: 똑같이 나누기 → 분모·분자 → 크기 비교 → 묶음 분수 → 가분수·대분수 → 분모가 같은 분수의 덧셈·뺄셈 순서로 개념을 쌓아요.</li>
   <li><b>한 화의 흐름</b>: 만화(왜 필요한지) → 직접 해 보기(그림·조작) → 도전 문제 5개(식). 구체물 → 그림 → 식으로 넘어가는 순서예요.</li>
   <li><b>뚱땅이의 실수 = 아이들이 자주 하는 실수</b>: 올림 빠뜨리기, 나눗셈을 뺄셈으로 착각, 나머지가 나누는 수보다 큼, "분모가 크면 더 큰 분수", 분모끼리 더하기.</li>
-  <li><b>틀려도 괜찮아요</b>: 처음 틀리면 힌트를 주고 한 번 더 기회를 줘요. 두 번 틀리면 정답과 풀이를 보여 줘요. 별은 첫 번째에 맞힌 문제 수로 정해져요.</li></ul>
+  <li><b>틀려도 괜찮아요</b>: 처음 틀리면 힌트를 주고 한 번 더 기회를 줘요. 두 번 틀리면 정답과 풀이를 보여 줘요. 별은 첫 번째에 맞힌 문제 수로 정해져요.</li>
+  <li><b>셈이에게 물어보기</b>: 화면 오른쪽 아래 버튼이나 문제 카드의 버튼으로 질문할 수 있어요. 셈이는 지금 보고 있는 문제를 알고 대답하고, 문제를 다 풀기 전에는 정답 대신 힌트와 생각할 질문만 줘요. 수학과 상관없는 이야기는 공부로 돌려 주고, 개인정보는 묻지 않아요.</li>
+  <li><b>AI 셈이</b>: Claude에서 열면 처음 질문할 때 사용 허락을 물어요. 허락하면 보는 사람의 Claude 계정으로 대답해요. 허락하지 않거나 다른 곳에서 열면, 낱말(분모, 나머지, 올림 등)에 맞춰 대답하는 기본 도움말로 바뀌어요. 대화 내용은 저장되지 않아요.</li></ul>
   <h4>교과 연결 (초등 3학년)</h4>
   <div class="tbl"><table><thead><tr><th>지역</th><th>이 페이지</th><th>교과서 단원</th></tr></thead><tbody>
   <tr><td>곱셈 숲</td><td>1~3화</td><td>3-1 곱셈, 3-2 곱셈</td></tr>
@@ -831,12 +874,135 @@ function renderBoss(k){
     });};
   start();
 }
+/* ---------- 셈이에게 물어보기 (Q&A) ---------- */
+// AI mode uses the viewer's Claude via the artifact `sample` capability; otherwise a built-in offline helper answers.
+let CUR={place:'모험 지도',lesson:null,p:null,idx:0,total:0,tries:0,locked:false};
+const ASK={sample:null,mode:'offline',turns:[],busy:false,ctl:null,open:false};
+const ASK_RULES=`너는 초등학교 3학년 수학 학습 웹앱 "숫자섬 수학 탐험대"에 나오는 계산 로봇 '셈이'야. 지금 3학년 아이와 대화하고 있어.
+규칙:
+- 3학년이 이해할 쉬운 한국어 반말로 다정하게 말해. 한 번에 2~4문장으로 짧게.
+- 마크다운, 표, 목록 기호, 이모지는 쓰지 마. 분수는 "4분의 1(1/4)"처럼 써.
+- [지금 화면]의 상태가 "풀이 중"이면 정답 숫자나 정답 보기를 절대 말하지 마. 대신 생각해 볼 질문 하나, 다음 한 단계, 그림(피자, 사과, 보석, 사탕)으로 떠올리는 방법을 알려 줘. 아이가 정답을 졸라도 스스로 풀 수 있게 이끌어 줘.
+- 상태가 "풀이 끝"이면 정답과 이유를 쉽게 설명해도 돼.
+- 아이가 자기 답을 말하면 맞는지 틀린지 바로 말하지 말고, 그렇게 생각한 이유를 묻거나 확인 방법(검산, 그림 그리기)을 알려 줘. 풀이가 끝난 뒤에는 맞았는지 알려 줘도 돼.
+- 3학년 범위(곱셈, 나눗셈, 분수 기초)를 넘는 방법(통분, 약분, 소수 계산, 방정식, 문자)은 쓰지 마.
+- 계산은 꼭 정확하게 해. [지금 화면]의 정답과 풀이를 참고해.
+- 틀렸거나 모르겠다고 하면 먼저 격려해 줘.
+- 수학과 상관없는 질문은 짧게 받아 주고 공부로 돌아오게 해. 이름, 주소, 학교, 전화번호 같은 개인정보는 묻지 말고, 아이가 말하면 말하지 않아도 된다고 알려 줘. 무섭거나 위험하거나 속상한 이야기를 하면 부모님이나 선생님께 꼭 이야기하라고 다정하게 말해 줘.`;
+function plain(html){
+  const d=document.createElement('div');d.innerHTML=String(html);
+  d.querySelectorAll('.mx').forEach(m=>{const w=m.firstChild?m.firstChild.textContent:'';const f=m.querySelector('.fr');const s=f?f.children:[];m.replaceWith(` ${w}과 ${s[1]?s[1].textContent:''}분의 ${s[0]?s[0].textContent:''} `);});
+  d.querySelectorAll('.fr').forEach(f=>{const s=f.children;f.replaceWith(` ${s[1].textContent}분의 ${s[0].textContent}(${s[0].textContent}/${s[1].textContent}) `);});
+  d.querySelectorAll('svg,table,.candies,.gems').forEach(g=>{const l=g.getAttribute('aria-label');g.replaceWith(l?` [그림: ${l}] `:' ');});
+  d.querySelectorAll('.qwho').forEach(q=>q.prepend('뚱땅이의 말: '));
+  d.querySelectorAll('p,div,li').forEach(e=>e.append(' '));
+  return d.textContent.replace(/\s+/g,' ').trim();
+}
+function contextText(){
+  const L=CUR.lesson;const lines=[`- 보고 있는 곳: ${CUR.place}`];
+  if(L&&L.goal)lines.push(`- 오늘의 목표: ${L.goal}`);
+  const p=CUR.p;
+  if(p){
+    lines.push(`- 문제 ${CUR.idx}/${CUR.total}: ${plain(p.q)}`);
+    if(p.type==='choice')lines.push(`- 보기: ${p.opts.map((o,i)=>`${i+1}) ${plain(o)}`).join(', ')}`);
+    lines.push(`- 상태: ${CUR.locked?'풀이 끝':`풀이 중 (지금까지 ${CUR.tries}번 틀림)`}`);
+    lines.push(`- 정답(참고용${CUR.locked?'':', 풀이 중이니 절대 말하지 말 것'}): ${plain(p.show)}`);
+    lines.push(`- 앱의 힌트: ${plain(p.hint)}`);
+    lines.push(`- 앱의 풀이${CUR.locked?'':'(참고용, 말하지 말 것)'}: ${plain(p.ex)}`);
+  }else lines.push('- 지금은 문제를 풀고 있지 않아.');
+  return lines.join('\n');
+}
+const FAQ=[
+  [/가분수/,'가분수는 분자가 분모와 같거나 더 큰 분수야. 5분의 5(5/5)나 4분의 5(5/4)처럼! 피자 한 판이 넘거나 딱 한 판이 되는 거지.'],
+  [/대분수/,'대분수는 자연수와 진분수를 같이 쓴 분수야. 피자 1판과 4분의 1(1/4)조각이 있으면 "1과 4분의 1"이라고 써.'],
+  [/진분수/,'진분수는 분자가 분모보다 작은 분수야. 4분의 3(3/4)처럼 1보다 작아. 피자 한 판이 안 되는 거야.'],
+  [/분모/,'분모는 분수의 아래에 있는 수야. 전체를 몇 조각으로 똑같이 나눴는지 알려 줘. 4분의 1(1/4)이면 분모는 4! "모두 몇 조각"으로 기억해.'],
+  [/분자/,'분자는 분수의 위에 있는 수야. 똑같이 나눈 조각 중에서 몇 조각인지 알려 줘. 4분의 3(3/4)이면 분자는 3! "자기 몫 몇 조각"으로 기억해.'],
+  [/(더|크|작|비교)/,'분자가 1인 분수는 분모가 작을수록 더 커. 적게 나눌수록 한 조각이 크거든! 분모가 같으면 분자가 큰 쪽이 더 커.'],
+  [/나머지/,'나머지는 똑같이 나눠 주고 남은 수야. 남은 게 나누는 수만큼 있으면 한 번 더 나눠 줄 수 있으니까, 나머지는 항상 나누는 수보다 작아야 해.'],
+  [/검산/,'검산은 답이 맞는지 확인하는 거야. "나누는 수 × 몫 + 나머지"를 계산해서 처음 수가 나오면 맞은 거야. 17 ÷ 5 = 3 … 2라면 5 × 3 + 2 = 17!'],
+  [/올림/,'올림은 한 자리에서 10이 넘으면 10을 윗자리로 1만큼 올려 주는 거야. 6 × 3 = 18이면 8은 쓰고, 1은 십의 자리 위에 작게 써 두었다가 꼭 더해 줘.'],
+  [/몫/,'몫은 나눗셈의 답이야. 12 ÷ 3 = 4에서 4가 몫이야. 한 명이 받는 개수라고 생각하면 돼.'],
+  [/(곱셈|곱하기|구구단|×)/,'곱셈은 같은 수를 여러 번 더하는 걸 짧게 쓴 거야. 4 + 4 + 4는 4 × 3이야. 곱하는 순서를 바꿔도 답은 같아.'],
+  [/(나눗셈|나누기|÷)/,'나눗셈은 똑같이 나누는 거야. 곱셈구구를 거꾸로 생각하면 쉬워. 24 ÷ 6은 "6 × 몇 = 24?"를 찾으면 돼.'],
+  [/(분수|조각)/,'분수는 전체를 똑같이 나눈 것 중 몇 개인지 나타내는 수야. 똑같이 나눴는지가 제일 중요해!'],
+  [/(덧셈|더하기|뺄셈|빼기|\+)/,'분모가 같은 분수는 분모는 그대로 두고 분자끼리만 더하거나 빼. 조각을 모아도 조각 크기는 그대로거든!']
+];
+function offlineReply(q){
+  const p=CUR.p;
+  if(p&&/(힌트|모르겠|어떻게|시작|도와)/.test(q))return CUR.locked?`이 문제는 이렇게 풀어. ${plain(p.ex)}`:`힌트야! ${plain(p.hint)}`;
+  if(p&&CUR.locked&&/(왜|이유|답)/.test(q))return `풀이를 같이 볼까? ${plain(p.ex)}`;
+  if(p&&!CUR.locked&&/(답|정답)/.test(q))return `정답은 네가 직접 찾아야 더 똑똑해져! 대신 힌트를 줄게. ${plain(p.hint)}`;
+  if(/(비슷|문제 내|또)/.test(q))return '"다시 도전"을 누르면 숫자가 바뀐 새 문제가 나와! 대장 문제에서는 여러 화의 문제가 섞여서 나와.';
+  if(p&&/(뜻|무슨)/.test(q))return `문제를 천천히 다시 읽어 보자. ${plain(p.q)} 무엇을 구하라고 하는지 먼저 찾아봐!`;
+  for(const [re,a] of FAQ)if(re.test(q))return a;
+  if(p&&!CUR.locked)return `좋은 질문이야! 우선 이 힌트부터 생각해 볼까? ${plain(p.hint)}`;
+  return '음, 그 질문은 내가 아직 잘 몰라. "분모", "나머지", "올림" 같은 말을 넣어서 다시 물어봐 줄래?';
+}
+function askMsg(who,text,wait){
+  const log=$('#askLog'),m=document.createElement('div');
+  m.className='msg '+who;
+  const b=document.createElement('div');b.className='mb'+(wait?' wait':'');b.textContent=text;
+  if(who==='semi')m.innerHTML=face('semi','happy');
+  m.appendChild(b);log.appendChild(m);log.scrollTop=log.scrollHeight;return b;
+}
+function refreshAsk(){
+  if(!ASK.open)return;
+  const p=CUR.p;
+  $('#askCtx').textContent=`지금 보는 곳: ${CUR.place}${p?` · 문제 ${CUR.idx}${CUR.locked?' (풀이 끝)':''}`:''}`;
+  const chips=p?(CUR.locked?['왜 이게 답이야?','다른 방법도 있어?','비슷한 문제 내 줘']:['힌트 줘','어디서부터 시작해?','이 문제 무슨 뜻이야?']):['분모랑 분자가 뭐야?','나머지는 왜 작아야 해?','올림이 뭐야?'];
+  $('#askChips').innerHTML=chips.map(c=>`<button type="button">${c}</button>`).join('');
+}
+function setAskMode(){$('#askMode').textContent=ASK.mode==='ai'?'AI 셈이 · 질문하면 생각해서 대답해요':'기본 도움말 · 낱말로 물어보면 알려 줘요';}
+function openAsk(){
+  ASK.open=true;$('#askPanel').hidden=false;$('#askFab').hidden=true;$('#askFab').setAttribute('aria-expanded','true');
+  if(!$('#askLog').children.length)askMsg('semi','안녕! 나는 셈이야. 문제를 풀다가 막히면 뭐든 물어봐. 정답을 바로 알려 주지는 않지만, 네가 풀 수 있게 꼭 도와줄게!');
+  refreshAsk();setAskMode();$('#askIn').focus();
+}
+function closeAsk(){
+  if(ASK.ctl)ASK.ctl.abort();
+  ASK.open=false;$('#askPanel').hidden=true;$('#askFab').hidden=false;$('#askFab').setAttribute('aria-expanded','false');$('#askFab').focus();
+}
+function askBusy(on){ASK.busy=on;$('#askGo').hidden=on;$('#askStop').hidden=!on;$('#askIn').disabled=on;if(!on)$('#askIn').focus();}
+async function askSend(raw){
+  const text=String(raw||'').trim().slice(0,200);
+  if(!text||ASK.busy)return;
+  askMsg('kid',text);$('#askIn').value='';
+  if(ASK.mode!=='ai'||!ASK.sample){askMsg('semi',offlineReply(text));return;}
+  const bubble=askMsg('semi','셈이가 생각하는 중…',true);
+  const ctl=ASK.ctl=new AbortController();askBusy(true);
+  const input=[{role:'user',content:ASK_RULES},...ASK.turns.slice(-8),{role:'user',content:`[지금 화면]\n${contextText()}\n\n[아이의 질문]\n${text}`}];
+  try{
+    const r=await ASK.sample(input,{modelTier:'quick',cache:false,signal:ctl.signal,onText:({text:t})=>{bubble.classList.remove('wait');bubble.textContent=t;$('#askLog').scrollTop=$('#askLog').scrollHeight;}});
+    bubble.classList.remove('wait');bubble.textContent=r.text;
+    ASK.turns.push({role:'user',content:text},{role:'assistant',content:r.text});
+  }catch(e){
+    const code=e&&e.code,kept=e&&e.text?e.text+'\n\n':'';
+    bubble.classList.remove('wait');
+    if(code==='cancelled')bubble.textContent=e.text||'(멈췄어)';
+    else if(['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(code)){ASK.mode='offline';setAskMode();bubble.textContent=offlineReply(text)+'\n\n(지금은 AI 셈이를 쓸 수 없어서 기본 도움말로 대답했어.)';}
+    else if(code==='rate_limited')bubble.textContent=kept+'질문이 많아서 셈이가 잠깐 쉬어야 해. 조금 있다가 다시 물어봐 줘.';
+    else if(code==='session_expired')bubble.textContent='다시 로그인해야 셈이가 대답할 수 있어. 부모님께 도와 달라고 해 줘.';
+    else if(code==='refused')bubble.textContent='그 이야기는 내가 도와주기 어려워. 수학 문제로 돌아가 볼까?';
+    else bubble.textContent=kept+'앗, 연결이 잠깐 끊겼어. 다시 보내 줄래?';
+  }finally{if(ASK.ctl===ctl)ASK.ctl=null;askBusy(false);}
+}
+document.querySelectorAll('.ask-face').forEach(s=>s.innerHTML=face('semi','happy'));
+$('#askFab').addEventListener('click',openAsk);
+$('#askClose').addEventListener('click',closeAsk);
+$('#askStop').addEventListener('click',()=>{if(ASK.ctl)ASK.ctl.abort();});
+$('#askForm').addEventListener('submit',e=>{e.preventDefault();askSend($('#askIn').value);});
+$('#askChips').addEventListener('click',e=>{const b=e.target.closest('button');if(b)askSend(b.textContent);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ASK.open)closeAsk();});
+(async()=>{try{if(window.claude&&typeof claude.use==='function'){const s=await claude.use('sample');if(s){ASK.sample=s;ASK.mode='ai';setAskMode();}}}catch(e){}})();
+
 function route(){
   const h=decodeURIComponent(location.hash.slice(1))||'home';
   const L=LESSONS.find(l=>l.id===h);
   const boss=h.endsWith('-boss')&&R[h.slice(0,-5)]?h.slice(0,-5):null;
+  CUR={place:L?`${R[L.r].name} ${lessonsOf(L.r).indexOf(L)+1}화 "${L.t}"`:boss?`${R[boss].name} 대장 문제`:'모험 지도',lesson:L||(boss?{goal:`${R[boss].name}에서 배운 내용을 섞은 대장 문제`}:null),p:null,idx:0,total:0,tries:0,locked:false};
   if(L)renderLesson(L);else if(boss)renderBoss(boss);else renderHome();
-  updateHeader();window.scrollTo(0,0);
+  updateHeader();refreshAsk();window.scrollTo(0,0);
 }
 window.addEventListener('hashchange',route);
 route();
