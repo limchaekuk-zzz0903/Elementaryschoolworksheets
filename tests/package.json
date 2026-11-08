@@ -1,0 +1,11 @@
+{
+  "name": "math-adventure-tests",
+  "private": true,
+  "description": "End-to-end checks for 숫자섬 수학 탐험대",
+  "scripts": {
+    "test": "node e2e.js"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}

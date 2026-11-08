@@ -6,7 +6,29 @@
 - `manifest.webmanifest`, `sw.js`, `icon*` — 홈 화면 설치·오프라인용 PWA 파일
 - `RESEARCH.md` — 학습지 리서치와 설계 노트
 
-## 실행
+## 운영 주소 (GitHub Pages)
+
+`main` 브랜치에 반영되면 GitHub Actions가 자동으로 테스트하고 배포합니다.
+
+- 주소: https://limchaekuk-zzz0903.github.io/servicemap/
+- 워크플로: `.github/workflows/math-adventure-pages.yml`
+  - `math-adventure/` 아래가 바뀐 push·PR마다 `tests/e2e.js` 실행(문제 생성기 검사, 12화+대장 문제 전체 풀이, 오답 흐름, 질의응답, 모바일 레이아웃)
+  - `main`에서 테스트를 통과하면 앱 파일만 모아 Pages로 배포
+  - 배포마다 서비스 워커 캐시 이름이 커밋 SHA로 바뀌어, 설치된 앱도 새 버전을 받습니다
+- **처음 한 번만**: 저장소 Settings → Pages → Build and deployment → Source를 **GitHub Actions**로 설정해야 합니다.
+- 수동 재배포: Actions 탭 → "math-adventure → GitHub Pages" → Run workflow
+
+배포된 주소에서는 질의응답이 **기본 도움말 모드**로 동작합니다(AI 셈이는 Claude 아티팩트 안에서만 동작).
+
+## 테스트
+
+```bash
+cd math-adventure/tests
+npm install && npx playwright install chromium
+npm test
+```
+
+## 로컬 실행
 
 ```bash
 cd math-adventure

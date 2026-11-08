@@ -1,21 +1,38 @@
-// Offline cache: the app shell is cached on install; fonts are cached as they load.
-const CACHE = 'math3-adventure-v1';
+// Offline support. The deploy workflow replaces __BUILD__ with the commit SHA,
+// so every release gets a fresh cache and old caches are deleted on activate.
+const CACHE = 'math3-adventure-__BUILD__';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
+
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
-});
-self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      if (res.ok && (e.request.url.startsWith(self.location.origin) || e.request.url.includes('fonts.g'))) {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy));
-      }
-      return res;
-    }).catch(() => caches.match('index.html')))
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k.startsWith('math3-adventure-') && k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
+});
+
+const put = (req, res) => {
+  if (res && res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+  return res;
+};
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+  const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+  if (!sameOrigin && !isFont) return;
+
+  // Pages: network first so a new release shows up right away; cache when offline.
+  if (req.mode === 'navigate' || url.pathname.endsWith('.html')) {
+    e.respondWith(fetch(req).then(res => put(req, res)).catch(() => caches.match(req).then(hit => hit || caches.match('index.html'))));
+    return;
+  }
+  // Icons, manifest, fonts: cache first.
+  e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => put(req, res))));
 });
