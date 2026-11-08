@@ -56,7 +56,7 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   check(bad.length === 0, `problem generators valid${bad.length ? ': ' + bad.slice(0, 5).join('; ') : ''}`);
 
   // 2. play through every lesson and boss
-  await page.evaluate(() => { const orig = runQuiz; runQuiz = (root, probs, done) => { window.__probs = probs; return orig(root, probs, done); }; });
+  await page.evaluate(() => { const orig = runQuiz; runQuiz = (root, probs, done, ctx) => { window.__probs = probs; return orig(root, probs, done, ctx); }; });
   const ids = await page.evaluate(() => LESSONS.map(l => l.id).concat(Object.keys(R).map(k => k + '-boss')));
   for (const id of ids) {
     await page.evaluate(h => { location.hash = h; }, id);
@@ -96,6 +96,33 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   const reply = await page.$$eval('#askLog .msg.semi .mb', els => els[els.length - 1].textContent);
   check(/분모/.test(reply), 'Q&A panel answers offline');
   await page.click('#askClose');
+
+  // 4a. parent features: the two wrong answers above go to the notebook; review, report, profiles
+  await page.evaluate(() => { location.hash = 'review'; });
+  await page.waitForSelector('.ghead');
+  const noteCount = await page.evaluate(() => P.wrong.length);
+  check(noteCount >= 1, `wrong answers are saved to the notebook (${noteCount})`);
+  await page.click('#redo');
+  await page.waitForSelector('#qform');
+  const rp = await page.evaluate(() => ({ type: window.__probs[0].type, a: window.__probs[0].a, n: (window.__probs[0].labels || []).length }));
+  if (rp.type === 'choice') await page.click(`.opt[data-i="${rp.a}"]`);
+  else { const f = rp.type === 'multi' ? Array.from({ length: rp.n }, (_, k) => 'am' + k) : { num: ['ans'], dec: ['ans'], frac: ['an', 'ad'], mixed: ['aw', 'an', 'ad'], qr: ['aq', 'ar'] }[rp.type]; const v = Array.isArray(rp.a) ? rp.a : [rp.a]; for (let j = 0; j < f.length; j++) await page.fill('#' + f[j], String(v[j])); await page.click('#qform button[type=submit]'); }
+  const after = await page.evaluate(() => P.wrong.length);
+  check(after === noteCount - 1, 'a notebook problem answered right on the first try leaves the notebook');
+  await page.evaluate(() => { location.hash = 'report'; });
+  await page.waitForSelector('.kpis');
+  check(await page.$$eval('.bar-c', e => e.length) === 7, 'parent report shows the last 7 days');
+  await page.evaluate(() => { location.hash = 'ws-review-1'; });
+  await page.waitForSelector('.sheet, .intro');
+  await page.evaluate(() => { location.hash = 'home'; });
+  await page.waitForSelector('#profForm');
+  const before = await page.evaluate(() => totalStars());
+  await page.fill('#profName', '둘째'); await page.click('#profForm button');
+  await page.waitForSelector('[data-prof]');
+  const fresh = await page.evaluate(() => ({ stars: totalStars(), name: profName(), n: PROFILES.length }));
+  check(fresh.stars === 0 && fresh.name === '둘째' && fresh.n === 2, 'a new profile starts with its own empty record');
+  await page.click('[data-prof="p1"]');
+  check(await page.evaluate(() => totalStars()) === before, 'switching back restores the first profile');
 
   // 4b. worksheets: problem sheet and answer sheet match for the same set number
   const sheetIds = await page.evaluate(() => LESSONS.map(l => l.id).concat(Object.keys(R)));
