@@ -83,6 +83,8 @@ section{display:flex;flex-direction:column;gap:16px;min-width:0}
 .hero h1 em{font-style:normal;color:var(--castle);-webkit-text-stroke:0}
 .lead{font-size:1.08rem;max-width:34em;color:var(--ink2)}
 .hero .row{margin-top:18px}
+.sync{margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-family:var(--f-display);font-size:.92rem;background:var(--paper2);border:2px solid var(--forest);color:var(--ink);border-radius:999px;padding:3px 12px}
+.sync::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--forest)}
 .hero-art{display:flex;justify-content:center}
 .hero-art svg{width:100%;max-width:260px;height:auto}
 .hands{transform-origin:130px 112px}
@@ -323,7 +325,33 @@ const reduceMotion=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion: r
 const PKEY='math3-adventure-v1';
 const blank=()=>({stars:{},crystals:{},name:''});
 let P=(()=>{try{return Object.assign(blank(),JSON.parse(localStorage.getItem(PKEY)||'{}'));}catch(e){return blank();}})();
-const save=()=>{try{localStorage.setItem(PKEY,JSON.stringify(P));}catch(e){}};
+/* Server sync: only when served by the 오늘우리집 server (/learn/), which answers api/progress for a signed-in member. */
+const SYNC={on:false,name:'',timer:null,reset:false};
+function pushProgress(){
+  if(!SYNC.on)return;
+  clearTimeout(SYNC.timer);
+  SYNC.timer=setTimeout(()=>{
+    const body=JSON.stringify({progress:P,reset:SYNC.reset});SYNC.reset=false;
+    fetch('api/progress',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body,keepalive:true}).catch(()=>{});
+  },600);
+}
+const save=()=>{try{localStorage.setItem(PKEY,JSON.stringify(P));}catch(e){}pushProgress();};
+async function syncInit(){
+  if(!/^https?:$/.test(location.protocol)||!/\/learn\/?$/.test(location.pathname))return;
+  try{
+    const r=await fetch('api/progress',{credentials:'same-origin',headers:{Accept:'application/json'}});
+    if(!r.ok||!(r.headers.get('content-type')||'').includes('json'))return;
+    const j=await r.json();
+    SYNC.on=true;SYNC.name=String(j.name||'').slice(0,20);
+    const sp=j.progress||{};
+    for(const [k,v] of Object.entries(sp.stars||{}))P.stars[k]=Math.max(P.stars[k]||0,Number(v)||0);
+    for(const [k,v] of Object.entries(sp.crystals||{}))if(v)P.crystals[k]=true;
+    if(!P.name&&sp.name)P.name=String(sp.name);
+    save();
+    updateHeader();
+    if(!location.hash||location.hash==='#home')renderHome();
+  }catch(e){}
+}
 
 /* ---------- characters ---------- */
 const NAMES={haru:'하루',semi:'셈이',ttung:'뚱땅'};
@@ -825,14 +853,14 @@ function certHtml(){
 function renderHome(){
   const all=Object.keys(R).every(k=>P.crystals[k]);
   const started=totalStars()>0;
-  app.innerHTML=`<section class="hero"><div><p class="eyebrow">초등 3학년 수학 · 만화로 배우는 모험</p><h1>숫자섬 <em>수학</em> 탐험대</h1><p class="lead">멈춰 버린 지혜의 시계탑을 다시 움직여라! 하루와 로봇 셈이와 함께 곱셈 숲, 나눗셈 동굴, 분수 성을 돌며 장난꾸러기 뚱땅이가 숨긴 셈 크리스탈을 찾아요.</p><div class="row"><a class="btn" href="#${nextTarget()}">${all?'다시 탐험하기':started?'이어서 모험하기':'모험 시작하기'}</a><a class="btn ghost" href="#frac-1">분수 성으로 바로 가기</a></div></div><div class="hero-art">${tower()}</div></section>
+  app.innerHTML=`<section class="hero"><div><p class="eyebrow">초등 3학년 수학 · 만화로 배우는 모험</p><h1>숫자섬 <em>수학</em> 탐험대</h1><p class="lead">멈춰 버린 지혜의 시계탑을 다시 움직여라! 하루와 로봇 셈이와 함께 곱셈 숲, 나눗셈 동굴, 분수 성을 돌며 장난꾸러기 뚱땅이가 숨긴 셈 크리스탈을 찾아요.</p>${SYNC.on?`<p class="sync">${SYNC.name?`${SYNC.name.replace(/[<>&"]/g,'')}님의 `:''}별과 크리스탈이 오늘우리집에 저장돼요</p>`:''}<div class="row"><a class="btn" href="#${nextTarget()}">${all?'다시 탐험하기':started?'이어서 모험하기':'모험 시작하기'}</a><a class="btn ghost" href="#frac-1">분수 성으로 바로 가기</a></div></div><div class="hero-art">${tower()}</div></section>
   <section><h2 class="sec">프롤로그 · 멈춰 버린 시계탑</h2>${comicHtml(PROLOGUE)}</section>
   <section><h2 class="sec">모험 지도</h2><div class="regions">${Object.keys(R).map(regionCard).join('')}</div></section>
   ${all?certHtml():''}
   <section>${parentsHtml()}</section>`;
   const nm=$('#kidname');if(nm)nm.addEventListener('input',()=>{P.name=nm.value;save();});
   const rs=$('#reset');let armed=false;
-  rs.addEventListener('click',()=>{if(!armed){armed=true;rs.textContent='정말 지울까요? 한 번 더 누르세요';$('#resetMsg').textContent='별과 크리스탈이 모두 사라져요.';return;}P=blank();save();route();});
+  rs.addEventListener('click',()=>{if(!armed){armed=true;rs.textContent='정말 지울까요? 한 번 더 누르세요';$('#resetMsg').textContent='별과 크리스탈이 모두 사라져요.';return;}P=blank();SYNC.reset=true;save();route();});
 }
 function resultHtml(L,st,total){
   const stars=st.first===total?3:st.first>=Math.ceil(total*.6)?2:1;
@@ -1006,6 +1034,7 @@ function route(){
 }
 window.addEventListener('hashchange',route);
 route();
+syncInit();
 </script>
 <script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});</script><!--SA-->
 </body><!--SA-->
