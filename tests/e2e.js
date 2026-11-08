@@ -1,6 +1,6 @@
 // End-to-end checks for the app. Starts a static server for ../, then:
 //  1. every problem generator yields valid answers (300 runs per lesson)
-//  2. every lesson and boss round can be finished by answering correctly
+//  2. every lesson and boss round of every grade can be finished by answering correctly
 //  3. wrong answers show a hint, then the solution
 //  4. the 셈이 Q&A panel answers in offline mode
 //  5. no horizontal overflow at phone width, no console errors
@@ -43,6 +43,8 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
       if (q.type === 'choice') {
         if (q.a < 0) out.push('no correct option: ' + tag);
         if (new Set(q.opts).size !== q.opts.length) out.push('duplicate options: ' + tag);
+      } else if (q.type === 'dec') {
+        if (typeof q.a !== 'number' || !isFinite(q.a) || q.a <= 0) out.push('bad decimal: ' + tag + ' ' + q.a);
       } else {
         const arr = Array.isArray(q.a) ? q.a : [q.a];
         if (arr.some(x => !Number.isInteger(x) || x < 0)) out.push('bad answer: ' + tag + ' ' + JSON.stringify(q.a));
@@ -64,10 +66,10 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
     let ok = true;
     for (let i = 0; i < 6 && ok; i++) {
       if (!(await page.$('#qform'))) break;
-      const pr = await page.evaluate(i => ({ type: window.__probs[i].type, a: window.__probs[i].a }), i);
+      const pr = await page.evaluate(i => ({ type: window.__probs[i].type, a: window.__probs[i].a, n: (window.__probs[i].labels || []).length }), i);
       if (pr.type === 'choice') await page.click(`.opt[data-i="${pr.a}"]`);
       else {
-        const fields = { num: ['ans'], frac: ['an', 'ad'], mixed: ['aw', 'an', 'ad'], qr: ['aq', 'ar'] }[pr.type];
+        const fields = pr.type === 'multi' ? Array.from({ length: pr.n }, (_, k) => 'am' + k) : { num: ['ans'], dec: ['ans'], frac: ['an', 'ad'], mixed: ['aw', 'an', 'ad'], qr: ['aq', 'ar'] }[pr.type];
         const vals = Array.isArray(pr.a) ? pr.a : [pr.a];
         for (let j = 0; j < fields.length; j++) await page.fill('#' + fields[j], String(vals[j]));
         await page.click('#qform button[type=submit]');
@@ -96,7 +98,7 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   await page.click('#askClose');
 
   // 5. layout
-  for (const id of ['home', 'mul-3', 'div-1', 'frac-2', 'frac-3']) {
+  for (const id of ['home', 'g1', 'g6', 'hill-3', 'port-1', 'jungle-2', 'canyon-3', 'observ-3', 'mul-3', 'frac-2']) {
     await page.evaluate(h => { location.hash = h; }, id);
     await page.waitForTimeout(150);
     const ov = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
