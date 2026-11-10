@@ -37,7 +37,7 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   // 1. generators
   const bad = await page.evaluate(() => {
     const out = [];
-    for (const L of LESSONS) for (let k = 0; k < 300; k++) for (const q of L.quiz()) {
+    for (const L of LESSONS) for (let k = 0; k < 300; k++) for (const q of [...L.quiz(), ...(L.challenge && k < 100 ? L.challenge() : [])]) {
       const tag = `${L.id} ${q.type}`;
       if (!q.hint || !q.ex) out.push('missing hint/explanation: ' + tag);
       if (q.type === 'choice') {
@@ -58,6 +58,18 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   check(bad.length === 0, `problem generators valid${bad.length ? ': ' + bad.slice(0, 5).join('; ') : ''}`);
 
   // 2. play through every lesson and boss
+
+  const answer = async (scope, i, wrong) => {
+    const pr = await page.evaluate(i => ({ type: window.__probs[i].type, a: window.__probs[i].a, n: (window.__probs[i].labels || []).length, k: (window.__probs[i].opts || []).length }), i);
+    if (pr.type === 'choice') await page.click(`${scope} .opt[data-i="${wrong ? (pr.a + 1) % pr.k : pr.a}"]`);
+    else {
+      const fields = pr.type === 'multi' ? Array.from({ length: pr.n }, (_, k) => 'am' + k) : { num: ['ans'], dec: ['ans'], text: ['ans'], frac: ['an', 'ad'], mixed: ['aw', 'an', 'ad'], qr: ['aq', 'ar'] }[pr.type];
+      const vals = Array.isArray(pr.a) ? pr.a : [pr.a];
+      for (let j = 0; j < fields.length; j++) await page.fill(`${scope} #${fields[j]}`, wrong ? (pr.type === 'text' ? 'zzz' : '9999') : String(vals[j]));
+      await page.click(`${scope} #qform button[type=submit]`);
+    }
+    return (await page.$eval(`${scope} #fb`, e => e.className));
+  };
   await page.evaluate(() => { const orig = runQuiz; runQuiz = (root, probs, done, ctx) => { window.__probs = probs; return orig(root, probs, done, ctx); }; });
   const ids = await page.evaluate(() => LESSONS.map(l => l.id).concat(Object.keys(R).map(k => k + '-boss')));
   for (const id of ids) {
@@ -126,6 +138,45 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   await page.click('[data-prof="p1"]');
   check(await page.evaluate(() => totalStars()) === before, 'switching back restores the first profile');
 
+
+  // 4c. landing page, subject pages, achievements
+  await page.evaluate(() => { location.hash = 'home'; });
+  await page.waitForSelector('.subj-card');
+  check(await page.$$eval('.subj-card', e => e.length) === 4, 'landing page offers 4 subject cards');
+  check(/지혜섬/.test(await page.$eval('#topbar', e => e.textContent)), 'header uses the subject-neutral name');
+  await page.click('.subj-card[href="#kor"]');
+  await page.waitForSelector('.subj-head');
+  check(await page.$$eval('.gcard', e => e.length) === 3 && await page.$$eval('.speed-card', e => e.length) === 3, 'subject page lists grades and speed challenges');
+  const xp0 = await page.evaluate(() => P.xp);
+  check(xp0 > 0, `finishing lessons earns XP (${xp0})`);
+  check(await page.evaluate(() => Object.keys(P.badges).length) >= 3, 'badges are awarded');
+  // challenge mode: locked under 2 stars, hearts drop on a wrong answer, a clean run earns the medal
+  await page.evaluate(() => { delete P.stars['vocab-2']; delete P.medals['vocab-2']; save(); location.hash = 'home'; });
+  await page.evaluate(() => { location.hash = 'vocab-2'; });
+  await page.waitForSelector('#chSec');
+  check(!!(await page.$('#chSec .lockbox')), 'challenge is locked before earning 2 stars');
+  await page.evaluate(() => { P.stars['vocab-2'] = 2; save(); route(); });
+  await page.waitForSelector('#chStart');
+  await page.click('#chStart'); await page.waitForSelector('#chQuiz #qform');
+  const fb1 = await answer('#chQuiz', 0, true);
+  check(fb1.includes('bad') && (await page.$eval('#chQuiz .hearts', e => e.getAttribute('aria-label'))).includes('2'), 'a wrong challenge answer costs a heart, with no hint');
+  await page.click('#chQuiz #qnext button');
+  for (let i = 1; i < 5; i++) { await answer('#chQuiz', i); await page.click('#chQuiz #qnext button'); }
+  check(!!(await page.$('#chQuiz .result .bigmedal')) && await page.evaluate(() => !!P.medals['vocab-2']), 'surviving the challenge earns a medal');
+  // daily challenge
+  await page.evaluate(() => { location.hash = 'daily'; });
+  await page.waitForSelector('#quiz #qform');
+  const xp1 = await page.evaluate(() => P.xp);
+  for (let i = 0; i < 5; i++) { await answer('#quiz', i); await page.click('#quiz #qnext button'); }
+  check(await page.evaluate(x => !!P.daily[today()] && P.xp >= x + 40, xp1), 'daily challenge completes and gives bonus XP');
+  // speed challenge starts and its timer stops when leaving
+  await page.evaluate(() => { location.hash = 'speed-eng-g3'; });
+  await page.click('#spStart'); await page.waitForSelector('#spT');
+  await page.evaluate(() => { location.hash = 'trophy'; });
+  await page.waitForSelector('.badges');
+  check(await page.evaluate(() => SPEED_TIMER === null), 'leaving the speed challenge stops its timer');
+  check(await page.$$eval('.badge.got', e => e.length) >= 3, 'trophy room shows earned badges');
+
   // 4b. worksheets: problem sheet and answer sheet match for the same set number
   const sheetIds = await page.evaluate(() => LESSONS.map(l => l.id).concat(Object.keys(R)));
   const sheetBad = [];
@@ -141,7 +192,7 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   check(sheetBad.length === 0, `worksheets match their answer sheets (${sheetIds.length} sheets)${sheetBad.length ? ': ' + sheetBad.join(', ') : ''}`);
 
   // 5. layout
-  for (const id of ['home', 'g1', 'g6', 'kor-g1', 'eng-g4', 'sci-g5', 'hangul-1', 'talk-3', 'change-2', 'ws-words-3', 'ws-light-5', 'ans-port-7', 'hill-3', 'port-1', 'jungle-2', 'canyon-3', 'observ-3', 'mul-3', 'frac-2']) {
+  for (const id of ['home', 'kor', 'sci', 'trophy', 'daily', 'speed-math-g6', 'g1', 'g6', 'kor-g1', 'eng-g4', 'sci-g5', 'hangul-1', 'talk-3', 'change-2', 'ws-words-3', 'ws-light-5', 'ans-port-7', 'hill-3', 'port-1', 'jungle-2', 'canyon-3', 'observ-3', 'mul-3', 'frac-2']) {
     await page.evaluate(h => { location.hash = h; }, id);
     await page.waitForTimeout(150);
     const ov = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
