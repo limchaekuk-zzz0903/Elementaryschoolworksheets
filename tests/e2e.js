@@ -43,6 +43,8 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
       if (q.type === 'choice') {
         if (q.a < 0) out.push('no correct option: ' + tag);
         if (new Set(q.opts).size !== q.opts.length) out.push('duplicate options: ' + tag);
+      } else if (q.type === 'text') {
+        if (!Array.isArray(q.a) || !q.a.length || q.a.some(x => typeof x !== 'string' || !x.trim())) out.push('bad text answer: ' + tag);
       } else if (q.type === 'dec') {
         if (typeof q.a !== 'number' || !isFinite(q.a) || q.a <= 0) out.push('bad decimal: ' + tag + ' ' + q.a);
       } else {
@@ -69,7 +71,7 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
       const pr = await page.evaluate(i => ({ type: window.__probs[i].type, a: window.__probs[i].a, n: (window.__probs[i].labels || []).length }), i);
       if (pr.type === 'choice') await page.click(`.opt[data-i="${pr.a}"]`);
       else {
-        const fields = pr.type === 'multi' ? Array.from({ length: pr.n }, (_, k) => 'am' + k) : { num: ['ans'], dec: ['ans'], frac: ['an', 'ad'], mixed: ['aw', 'an', 'ad'], qr: ['aq', 'ar'] }[pr.type];
+        const fields = pr.type === 'multi' ? Array.from({ length: pr.n }, (_, k) => 'am' + k) : { num: ['ans'], dec: ['ans'], text: ['ans'], frac: ['an', 'ad'], mixed: ['aw', 'an', 'ad'], qr: ['aq', 'ar'] }[pr.type];
         const vals = Array.isArray(pr.a) ? pr.a : [pr.a];
         for (let j = 0; j < fields.length; j++) await page.fill('#' + fields[j], String(vals[j]));
         await page.click('#qform button[type=submit]');
@@ -106,7 +108,7 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   await page.waitForSelector('#qform');
   const rp = await page.evaluate(() => ({ type: window.__probs[0].type, a: window.__probs[0].a, n: (window.__probs[0].labels || []).length }));
   if (rp.type === 'choice') await page.click(`.opt[data-i="${rp.a}"]`);
-  else { const f = rp.type === 'multi' ? Array.from({ length: rp.n }, (_, k) => 'am' + k) : { num: ['ans'], dec: ['ans'], frac: ['an', 'ad'], mixed: ['aw', 'an', 'ad'], qr: ['aq', 'ar'] }[rp.type]; const v = Array.isArray(rp.a) ? rp.a : [rp.a]; for (let j = 0; j < f.length; j++) await page.fill('#' + f[j], String(v[j])); await page.click('#qform button[type=submit]'); }
+  else { const f = rp.type === 'multi' ? Array.from({ length: rp.n }, (_, k) => 'am' + k) : { num: ['ans'], dec: ['ans'], text: ['ans'], frac: ['an', 'ad'], mixed: ['aw', 'an', 'ad'], qr: ['aq', 'ar'] }[rp.type]; const v = Array.isArray(rp.a) ? rp.a : [rp.a]; for (let j = 0; j < f.length; j++) await page.fill('#' + f[j], String(v[j])); await page.click('#qform button[type=submit]'); }
   const after = await page.evaluate(() => P.wrong.length);
   check(after === noteCount - 1, 'a notebook problem answered right on the first try leaves the notebook');
   await page.evaluate(() => { location.hash = 'report'; });
@@ -139,7 +141,7 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
   check(sheetBad.length === 0, `worksheets match their answer sheets (${sheetIds.length} sheets)${sheetBad.length ? ': ' + sheetBad.join(', ') : ''}`);
 
   // 5. layout
-  for (const id of ['home', 'g1', 'g6', 'ws-light-5', 'ans-port-7', 'hill-3', 'port-1', 'jungle-2', 'canyon-3', 'observ-3', 'mul-3', 'frac-2']) {
+  for (const id of ['home', 'g1', 'g6', 'kor-g1', 'eng-g4', 'sci-g5', 'hangul-1', 'talk-3', 'change-2', 'ws-words-3', 'ws-light-5', 'ans-port-7', 'hill-3', 'port-1', 'jungle-2', 'canyon-3', 'observ-3', 'mul-3', 'frac-2']) {
     await page.evaluate(h => { location.hash = h; }, id);
     await page.waitForTimeout(150);
     const ov = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
