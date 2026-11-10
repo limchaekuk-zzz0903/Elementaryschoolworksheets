@@ -198,6 +198,26 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
     const ov = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     check(ov <= 0, `no horizontal scroll at 400px on #${id}`);
   }
+
+  // 6. read-aloud fallbacks: app bridge, and no speech at all
+  for (const [kind, init] of [
+    ['bridge', "window.__msgs=[];window.ReactNativeWebView={postMessage:m=>window.__msgs.push(JSON.parse(m))};Object.defineProperty(window,'speechSynthesis',{value:undefined});"],
+    ['none', "Object.defineProperty(window,'speechSynthesis',{value:undefined});window.SpeechSynthesisUtterance=undefined;"],
+  ]) {
+    const tp = await browser.newPage({ viewport: { width: 400, height: 860 } });
+    await tp.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+    await tp.addInitScript(init);
+    await tp.goto(url + '#hangul-3'); await tp.waitForSelector('#qform');
+    if (kind === 'bridge') {
+      await tp.click('.btn.listen');
+      const m = await tp.evaluate(() => window.__msgs[0] || {});
+      check(m.type === 'speak' && m.lang === 'ko-KR' && !!m.text, 'speech goes to the app TTS bridge when one exists');
+    } else {
+      await tp.click('.btn.reveal');
+      check(/부모님이 읽어 주세요: \S/.test(await tp.$eval('.reveal-box', e => e.textContent)), 'without speech, listening questions can be read by a grown-up');
+    }
+    await tp.close();
+  }
   check(errors.length === 0, `no console errors${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
 
   await browser.close();
