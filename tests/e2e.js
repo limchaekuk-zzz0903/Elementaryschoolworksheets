@@ -15,12 +15,13 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 // a short silent WAV, standing in for the 오늘우리집 server's read-aloud mp3
 const WAV = (() => { const n = 1600, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(8000, 24); b.writeUInt32LE(16000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); return b; })();
 const ttsHits = [];
+let ttsStreamFails = false; // when true, media-element (Range) requests fail like a picky WebView
 const server = http.createServer((req, res) => {
   // pretend to be the 오늘우리집 server under /learn/ (page + read-aloud voice API)
   const u = new URL(req.url, 'http://x');
   if (u.pathname === '/learn/') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); fs.createReadStream(path.join(ROOT, 'index.html')).pipe(res); return; }
   if (u.pathname === '/learn/api/tts/status') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"enabled":true}'); return; }
-  if (u.pathname === '/learn/api/tts') { ttsHits.push(u.searchParams.get('t')); res.writeHead(200, { 'Content-Type': 'audio/wav' }); res.end(WAV); return; }
+  if (u.pathname === '/learn/api/tts') { if (ttsStreamFails && req.headers.range) { res.writeHead(500); res.end(); return; } ttsHits.push(u.searchParams.get('t')); res.writeHead(200, { 'Content-Type': 'audio/wav' }); res.end(WAV); return; }
   if (u.pathname.startsWith('/learn/api/')) { res.writeHead(401); res.end('{}'); return; }
   const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
   const file = path.join(ROOT, rel);
@@ -266,6 +267,13 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
     await tp.click('[data-say="comic"]'); await tp.waitForTimeout(1500);
     const r = await tp.evaluate(() => ({ started: AUD.started, said: window.__said.filter(x => x.trim()).length }));
     check(ttsHits.length >= 1 && r.started && r.said === 0, 'iPhone app screen: comic read-aloud uses the server voice, not silent-mode Web Speech');
+    // when streaming the voice fails, the page downloads the mp3 and plays it from memory
+    ttsStreamFails = true; ttsHits.length = 0;
+    await tp.evaluate(() => { stopSpeak(); AUD.started = false; AUD.failed = false; window.__said = []; });
+    await tp.click('[data-say="comic"]'); await tp.waitForTimeout(2000);
+    const r2 = await tp.evaluate(() => ({ started: AUD.started, failed: AUD.failed, blob: (AUD.el.src || '').startsWith('blob:'), said: window.__said.filter(x => x.trim()).length }));
+    ttsStreamFails = false;
+    check(r2.started && !r2.failed && r2.blob && r2.said === 0, 'iPhone app screen: if streaming fails, the downloaded voice file plays instead');
     await ctx.close();
   }
   check(errors.length === 0, `no console errors${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
