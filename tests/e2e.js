@@ -218,6 +218,18 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
     }
     await tp.close();
   }
+  {
+    // an engine that drops speak() calls made while it is busy (Chrome on Android): the whole comic must still be read
+    const tp = await browser.newPage({ viewport: { width: 400, height: 860 } });
+    await tp.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+    await tp.addInitScript("(()=>{window.__said=[];let cur=null;const S={get speaking(){return !!cur},pending:false,paused:false,getVoices:()=>[{lang:'ko-KR',name:'ko',localService:true}],addEventListener(){},cancel(){if(cur){const c=cur;cur=null;c.onerror&&c.onerror({error:'interrupted'});}},resume(){},pause(){},speak(u){if(cur)return;cur=u;window.__said.push(u.text);setTimeout(()=>{u.onstart&&u.onstart();setTimeout(()=>{if(cur===u){cur=null;u.onend&&u.onend();}},100);},20);}};Object.defineProperty(window,'speechSynthesis',{value:S});window.SpeechSynthesisUtterance=function(t){this.text=t;};})()");
+    await tp.goto(url + '#frac-1'); await tp.waitForSelector('#qform');
+    const lastPanel = await tp.$$eval('section:has([data-say="comic"]) .pn', els => (els[els.length - 1].querySelector('.bub,p,figcaption') || {}).textContent.trim().slice(-8));
+    await tp.click('[data-say="comic"]'); await tp.waitForTimeout(2500);
+    const said = await tp.evaluate(() => window.__said.join(' '));
+    check(said.includes(lastPanel), 'comic read-aloud plays to the last panel one piece at a time');
+    await tp.close();
+  }
   check(errors.length === 0, `no console errors${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
 
   await browser.close();
