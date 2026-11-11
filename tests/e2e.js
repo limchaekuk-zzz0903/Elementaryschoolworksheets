@@ -211,7 +211,7 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
 
   // 6. read-aloud fallbacks: app bridge, and no speech at all
   for (const [kind, init] of [
-    ['bridge', "window.__msgs=[];window.ReactNativeWebView={postMessage:m=>window.__msgs.push(JSON.parse(m))};Object.defineProperty(window,'speechSynthesis',{value:undefined});"],
+    ['bridge', "window.__msgs=[];window.TodayTTSEnabled=true;window.ReactNativeWebView={postMessage:m=>window.__msgs.push(JSON.parse(m))};Object.defineProperty(window,'speechSynthesis',{value:undefined});"],
     ['none', "Object.defineProperty(window,'speechSynthesis',{value:undefined});window.SpeechSynthesisUtterance=undefined;"],
   ]) {
     const tp = await browser.newPage({ viewport: { width: 400, height: 860 } });
@@ -274,6 +274,20 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
     const r2 = await tp.evaluate(() => ({ started: AUD.started, failed: AUD.failed, blob: (AUD.el.src || '').startsWith('blob:'), said: window.__said.filter(x => x.trim()).length }));
     ttsStreamFails = false;
     check(r2.started && !r2.failed && r2.blob && r2.said === 0, 'iPhone app screen: if streaming fails, the downloaded voice file plays instead');
+    await ctx.close();
+  }
+  for (const [name, ua] of [['Android', 'Mozilla/5.0 (Linux; Android 14; SM-F956N; wv) AppleWebKit/537.36 Version/4.0 Chrome/130 Mobile Safari/537.36'], ['iPhone', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148']]) {
+    // a React Native / flutter_inappwebview app always exposes its message channel; without the app opting in,
+    // read-aloud must not be sent there (the app ignores it) but play the server voice
+    const ctx = await browser.newContext({ userAgent: ua, viewport: { width: 400, height: 860 } });
+    const tp = await ctx.newPage();
+    await tp.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+    await tp.addInitScript("window.__msgs=[];window.ReactNativeWebView={postMessage:m=>window.__msgs.push(m)};window.flutter_inappwebview={callHandler:(n,m)=>window.__msgs.push(m)};" + (name === 'Android' ? "Object.defineProperty(window,'speechSynthesis',{value:undefined});window.SpeechSynthesisUtterance=undefined;" : ''));
+    await tp.goto(url.replace('/index.html', '/learn/') + '#frac-1'); await tp.waitForSelector('#qform'); await tp.waitForTimeout(300);
+    ttsHits.length = 0;
+    await tp.click('[data-say="comic"]'); await tp.waitForTimeout(1500);
+    const r = await tp.evaluate(() => ({ msgs: window.__msgs.length, started: AUD.started }));
+    check(r.msgs === 0 && ttsHits.length >= 1 && r.started, `${name} app with a default WebView message channel: read-aloud plays the server voice`);
     await ctx.close();
   }
   check(errors.length === 0, `no console errors${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
