@@ -255,6 +255,19 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
     check(ttsHits.length >= 1, 'app screen: listening questions play the server voice');
     await ctx.close();
   }
+  {
+    // iPhone app screen: Web Speech exists but the silent switch mutes it, so the server voice is used first
+    const ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148', viewport: { width: 400, height: 860 } });
+    const tp = await ctx.newPage();
+    await tp.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+    await tp.addInitScript("window.__said=[];Object.defineProperty(window,'speechSynthesis',{value:{speaking:false,pending:false,getVoices:()=>[],addEventListener(){},cancel(){},resume(){},speak(u){window.__said.push(u.text);}}});window.SpeechSynthesisUtterance=function(t){this.text=t;};");
+    await tp.goto(url.replace('/index.html', '/learn/') + '#words-1'); await tp.waitForSelector('#qform'); await tp.waitForTimeout(300);
+    ttsHits.length = 0;
+    await tp.click('[data-say="comic"]'); await tp.waitForTimeout(1500);
+    const r = await tp.evaluate(() => ({ started: AUD.started, said: window.__said.filter(x => x.trim()).length }));
+    check(ttsHits.length >= 1 && r.started && r.said === 0, 'iPhone app screen: comic read-aloud uses the server voice, not silent-mode Web Speech');
+    await ctx.close();
+  }
   check(errors.length === 0, `no console errors${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
 
   await browser.close();
