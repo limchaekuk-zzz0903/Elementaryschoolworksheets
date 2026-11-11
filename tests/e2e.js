@@ -12,7 +12,16 @@ const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
+// a short silent WAV, standing in for the 오늘우리집 server's read-aloud mp3
+const WAV = (() => { const n = 1600, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(8000, 24); b.writeUInt32LE(16000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); return b; })();
+const ttsHits = [];
 const server = http.createServer((req, res) => {
+  // pretend to be the 오늘우리집 server under /learn/ (page + read-aloud voice API)
+  const u = new URL(req.url, 'http://x');
+  if (u.pathname === '/learn/') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); fs.createReadStream(path.join(ROOT, 'index.html')).pipe(res); return; }
+  if (u.pathname === '/learn/api/tts/status') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"enabled":true}'); return; }
+  if (u.pathname === '/learn/api/tts') { ttsHits.push(u.searchParams.get('t')); res.writeHead(200, { 'Content-Type': 'audio/wav' }); res.end(WAV); return; }
+  if (u.pathname.startsWith('/learn/api/')) { res.writeHead(401); res.end('{}'); return; }
   const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
   const file = path.join(ROOT, rel);
   if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
@@ -229,6 +238,22 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); console.log(`${ok ? 'P
     const said = await tp.evaluate(() => window.__said.join(' '));
     check(said.includes(lastPanel), 'comic read-aloud plays to the last panel one piece at a time');
     await tp.close();
+  }
+  {
+    // Android app screen (WebView) has no Web Speech: on the 오늘우리집 server the page plays the server's voice files
+    const ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-F956N; wv) AppleWebKit/537.36 Version/4.0 Chrome/130 Mobile Safari/537.36', viewport: { width: 400, height: 860 } });
+    const tp = await ctx.newPage();
+    await tp.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+    await tp.addInitScript("Object.defineProperty(window,'speechSynthesis',{value:undefined});window.SpeechSynthesisUtterance=undefined;");
+    await tp.goto(url.replace('/index.html', '/learn/') + '#frac-1'); await tp.waitForSelector('#qform'); await tp.waitForTimeout(300);
+    ttsHits.length = 0;
+    await tp.click('[data-say="comic"]'); await tp.waitForTimeout(2500);
+    const lastPanel = await tp.$$eval('section:has([data-say="comic"]) .pn', els => (els[els.length - 1].querySelector('.bub,p,figcaption') || {}).textContent.trim().slice(-8));
+    check(ttsHits.some(t => t.includes(lastPanel)) && await tp.evaluate(() => AUD.started && !AUD.failed), 'app screen: comic read-aloud plays the server voice to the last panel');
+    await tp.evaluate(() => { location.hash = 'hangul-3'; }); await tp.waitForSelector('.btn.listen');
+    ttsHits.length = 0; await tp.click('.btn.listen'); await tp.waitForTimeout(600);
+    check(ttsHits.length >= 1, 'app screen: listening questions play the server voice');
+    await ctx.close();
   }
   check(errors.length === 0, `no console errors${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
 
